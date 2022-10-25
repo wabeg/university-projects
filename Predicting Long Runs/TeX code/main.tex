@@ -1,0 +1,109 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{biblatex}
+\usepackage{sectsty}
+\sectionfont{\fontsize{12}{15}\selectfont}
+\title{Article Summary of The Suprising Predictability of Long Runs by Mark F. Schilling}
+\author{Gabriel Wies}
+\date{April 2021}
+\addbibresource{artbib.bib}
+\begin{document}
+
+\maketitle
+\begin{abstract}
+    In the natural world we encounter many events comprising of independent Bernoulli trails such as tossing a coin or roulette. While it may seem counter-intuitive, in these events we are able to predict the length of the longest run of identical outcomes with surprising accuracy. Mark F. Schilling's paper on this topic provides equations that can predict the length along with an approximation of the accuracy of these predictions.
+\end{abstract}
+\section{The approximate length of the longest success run}
+When events can be modeled as independent Bernoulli trails, the length of the longest run can be represented by $L$. Suppose we have a sequence of $n$ Bernoulli trails with a probability of $p$ and $q=1-p$, we estimate longest run with the function:
+\begin{equation}\label{1}
+    \mathnormal{l} = \log_\frac{1}{p}(nq)
+\end{equation}
+We can derive this function by defining the random variable $L=L_n$ to the length of the longest success run. We can set the expected value of the number of failures ($N_F$) equal to $nq$ where, as defined earlier, $q=1-p$. A fraction of $p^n$ failures should be followed by at least $n$ successes, therefore it should average out to $nqp^\mathnormal{l}$ runs of $\mathnormal{l}$ length successes. In order to find the longest possible length of $\mathnormal{l}$ it is logical to set the number of occurrences equal to $1$  (i.e. $nqp^\mathnormal{l}=1$). Solving for $\mathnormal{l}$ obtains Eq.\ref{1}. 
+
+Using Eq.\ref{1} we can estimate the longest run of heads when flipping a coin ($p=\frac{1}{2}$). The values of $\mathnormal{l}$ have been rounded to the nearest integer.
+
+\begin{center}\label{TABLE 1}
+ \begin{tabular}{|c | c | c | c|} 
+ \hline
+ No. of trials ($n$) & Head runs ($\mathnormal{l}$)\\ [0.5ex] 
+ \hline\hline
+ 100 & 6  \\ 
+ \hline
+ 1000 & 9  \\
+ \hline
+ 10,000 & 12  \\
+ \hline
+ 1,000,000 & 19 \\
+ \hline
+ 
+\end{tabular}
+\end{center}
+\section{The longest run of identical outcomes}
+The model as defined so far can is only applicable to the longest run of Bernoulli trials. This, however has limited uses and we are primarily interested in the longest run of identical outcomes rather than the longest run of a specific outcome. For example, we could be looking for the longest run of any side of a six-sided die. In this case we are less interested in the number the die lands on, but rather how long the streak is. We call trials with several equally likely outcomes multinomial trials. In order to adapt this model for multinomial trials we can call an outcome a ``succes'' if it is a repeat of the previous outcome. A sequence of $\mathnormal{l}$ ``successes'' is identical to $\mathnormal{l}+1$ repeating values. 
+Consider a fair die experiment where we set the possible outcomes to $1,2,3,4,5,6$.
+
+\hspace{15pt}
+
+\begin{tabular}{c c c c c c c c c c c c c}
+    Side rolled & 1 & 3 & 3 & 4 & 5 & 5 & 5 & 5 & 6 & 2 & 1\\
+     Repeat? & - & N & Y & N & N & Y & Y & Y & N & N & N\\
+\end{tabular}
+
+\hspace{15pt}
+
+Since the sequences can be represented by Y and N, we can still apply the Eq.\ref{1} to a multinomial model. 
+In a multinomial trial, the number of consecutive successes are identically distributed and independent. 
+\section{Predictability of the length of the longest run}
+A prediction such as Eq.\ref{1} is just an estimate of the likely length of $L_n$ in a Bernoulli trial. Since the number of consecutive successes are identically distributed and independent, we can form a probability of mass function $p(k)=p^kq$ due to the geometric distribution of the random variables. The distribution of $L_n$ is therefore approximated to be the maximum of  $[nq]$ independent geometric random variables. Schilling proves this finding through exponential distribution:
+
+Let $X$ be and exponential random variable with $\lambda = -\ln p$ as a parameter. The density function is given by
+
+   \[ \lambda=e^{-\lambda x}=\lambda p^x\]
+
+for $x \geq 0$. Let $Y = [X]$; then
+
+\[P(Y=k) = \int_{k}^{k+1} e^{-\lambda x} dx = e^{-\lambda x}(1-e^{-k})=p^kq\]
+
+In order to approximate the estimation error of $\mathnormal{l}$, we let $X_1,X_2,X_3,$...be independent exponential random variables each with parameter $\lambda=-\ln p$, and let $M_n=max(X_1,X_2,X_3,...,X_{[nq]})$. Since the value of $M_n$ tends to increase as n increases, it is better to look at the difference between $M_n$ and our estimate using Eq.\ref{1}. This difference can be denoted by
+
+\[ E_n=M_n-\log_{1/p}(nq) \]
+
+Schilling sets $F_E$ equal to the limiting cumulative distribution function of $E_n$ in order to derive the limit of the probability of the estimation error denoted by $F_E(x)$
+
+\begin{equation}\label{2}
+     F_E(x) = \lim_{n \to \infty } P(E_n \leq x) = e^{-p^x} 
+\end{equation}
+
+$E_n$ therefore has a limiting distribution given by Eq.\ref{2}, which is said to have an extreme value distribution known as Gumbel distribution. The mean and  standard deviation are as follows
+
+\[ \mu = \gamma \ln\left(\frac{1}{p}\right) \]
+\begin{equation}\label{3}
+   \sigma = \frac{\pi}{\sqrt{6}\ln\left(1/p\right)}
+\end{equation}
+It can be concluded;
+\begin{equation}\label{4}
+    P(L_n= \mathnormal{l}) \approx P(\log_{1/p}(nq) \leq X < \mathnormal{l} + 1 - \log_{1/p}(nq))
+\end{equation}
+
+From the result of Eq.\ref{4} it can be concluded that the approximate distribution of the prediction error $L_n-\log_{1/p}(nq)$ does not depend on $n$. That means that it is possible to predict the longest run in any length trial as long as $nq \gg 1$. The standard deviation formula (\ref{3}) shows that the spread of distributions is generally small, implying great predictability in the length of the longest run.
+
+For example in $100,000,000$ spins of American Roulette ($p=18/38$) the prediction interval for the longest run of black or red with an approximate $95\%$ prediction interval will be $(22,28)$ while the prediction interval for $500,000,000$ spins is $(24,30)$. Note how the prediction interval length does not grow even when $n$ is increased 5 times over.
+\section{Extremely predictable cases}
+The approximating extreme value density becomes more concentrated as the value of $p$ becomes smaller, and therefore the length of the longest success run becomes even more predictable. In cases where $p$ is small, we can almost always guarantee the length of the longest success run. Schilling shows this by setting $N_\mathnormal{l}$ equal to the number of success runs of length $\mathnormal{l}$ or longer in $n$ Bernoulli trails. If we treat $n_F$ as a given, we obtain
+\[ P(L_n=\mathnormal{l})=P(N_\mathnormal{l} > 0, N_{\mathnormal{l}+1}=0|n_F) \approx e^{-n_Fp^{\mathnormal{l}+1}} - e^{n_fp^\mathnormal{l}}\]
+By the Law of Large Numbers, if $n$ is large we can treat $n_f$ as equal to its expected value of $nq$. Schilling solves  $e^{-nqp^\mathnormal{l}}=p^{1/q}$ for $n$ yielding
+\begin{equation}\label{5}
+    n = \frac{\ln(1/p)}{q^2p^\mathnormal{l}}
+\end{equation}
+which gives
+\begin{equation}\label{6}
+    P(L_n=\mathnormal{l}) \approx p^{p/q}-p^{1/q}
+\end{equation}
+
+Eq. \ref{5} solves for the values of $n$ that maximize $P(L_n=\mathnormal{l})$ for a given $p$ and run length of $\mathnormal{l}$. Schilling also derives that the limit of Eq. \ref{6} as $p$ approaches $0$ is equal to $1$. This shows that the longest success run of small value of $p$ is likely to have a length of $\mathnormal{l}$. As an example, Schilling looks at the first $5,000,000$ digits of $\pi$. This value of $n$ is near optimal for predicting the run length of any two digit pair $\left(p=\left(\frac{1}{10}\right)^2\right)$. Plugging these values into Eq.\ref{6} it can be said with $94.5\%$ probability that the longest run of any two-digit pair will be three. Looking at the first $4,700,000$ digits of $\pi$, the longest run for 94 out of 100 of these pairs is 3. Values of $n$ that satisfy Eq.\ref{5} approximately place almost all of their mass of the probability distribution of the longest run on a single value. 
+\nocite{*}
+\printbibliography
+
+\end{document}
