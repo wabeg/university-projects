@@ -1,0 +1,570 @@
+---
+title: "Group 2 Project Draft"
+author: "Anthony Zalev, Gabriel Wies, Will Fabian, Zhenguang Huang"
+date: "11/13/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(fig.width=3.25, fig.height=2.5) 
+library(ggplot2) #for nice graphs
+library(EnvStats) #for boxcox transformation
+library(leaps) # This is for our regsubsets
+library(dplyr) # This is for data manipulation
+library(lares) # This is for a nicer correlation plot look.
+library(knitr) # This is for nice tables
+library(zoo) # Merging DF with different rows
+library(car) # For VIF calcualtions
+library(olsrr) # Plot studentized deleted residuals
+library(qpcR) # For Press Calculations
+library(data.table) #transpose AIC data frame
+library(bibtex) # For reading Bibtex file
+library(lmtest) # Test for equal variancelm
+```
+
+
+```{r echo=FALSE}
+data = read.csv("tutorialCSV/smsa.csv") # adjust this as needed. the smsa.csv is unchanged.
+colnames(data)[colnames(data) == "ï..City"] = "City"
+colnames(data)[colnames(data) == "X.NonWhite"] = "PctNonWhite"
+colnames(data)[colnames(data) == "X.WC"] = "PctWhiteCollar"
+
+data <- data[-c(21), ]
+data$pop <- as.numeric(data$pop)
+data$income <- as.numeric(data$income)
+data = subset(data, select = -c(City) )
+```
+
+# Introduction
+
+## Main goals of project
+The existence of large population centers paired with the ability to study environmental and chemical variables opens the door to an interesting discussion. How do the chemical and environmental variables in metropolitan areas affect the mortality rate for those living there? The dataset from the U.S. Department of Labor Statistics tracks 60 Standard Metropolitan Statistical Areas around the United States. Using this data we have created a regression model that displays which factors affect mortality in urban areas. 
+
+## Descriptive Variables
+In the dataset we looked at there are 15 numerical variables that we investigated to determine what factors affect mortality rates. We categorized these variables into 3 groups: meteorological parameters, pollutants, and socioeconomic factors.
+
+### Age Adjusted Mortality
+Age adjusted mortality controls for the effects of population age. This is typically done through weighted averages and gives insight into the percentage of premature deaths. Mortality in this model is the deaths per 100,000 people. This is going to be our main variable that we will use as the Y value in our regression model. 
+This data was collected by the US Census Bureau.
+
+### Meteorological Parameters
+The dataset was provided without descriptions of where the data was collected from but it can be assumed that meteorological and pollutant data was collected by local weather stations.
+
+#### Temperature (JanTemp, JulyTemp)
+
+The dataset provides average temperatures for the months of January and July. January gives us a good representation of winter temperatures while July . Certain chemicals such as NOx are more detrimental to health in hotter urban areas due to increased reactivity. Colder temperatures in the winter lead to a larger amount of pollutants through an increase in demand for electricity. Cold weather has also been linked to an increase in natural as well as cardiovascular and respiratory deaths. Temperature is given in Fahrenheit. 
+https://pubmed.ncbi.nlm.nih.gov/18952849/
+
+#### Annual Rainfall (Rain)
+
+Rain typically reduces the amount of pollutants in the air. A high annual rainfall could also indicate more severe weather. Annual rainfall is given in inches.
+
+#### Relative Humidity (RelHum)
+
+High levels of humidity lead to an increase in reactions of pollutants in the air. Lower humidity levels are known to cause issues in people with respiratory conditions.
+
+### Pollutants
+
+#### Nitrous Oxides (NOx, NOxPot)
+
+NOx reacts with sunlight to produce ground level ozone. According to the EPA, ground level ozone can cause a multitude of respiratory issues. This is measured in parts per million (PPM).
+https://www.epa.gov/ground-level-ozone-pollution/health-effects-ozone-pollution   
+
+#### Sulfur Dioxide (SO2Pot)
+
+High concentration of SO2 in the air leads to the formation of particulate matter in the air. When inhaled it can lead to decreased lung function and premature death of people with lung or heart disease. This is measured in PPM.
+https://www.epa.gov/pm-pollution/health-and-environmental-effects-particulate-matter-pm 
+
+#### Hydrocarbon Potential (HCPot)
+
+Hydrocarbons are emitted from vehicles and react with the air to form NOx and other compounds that form ground level ozone. This is measured in PPM.
+https://www.epa.ohio.gov/dapc/echeck/whyecheck/healthef   
+
+### Socioeconomic Variables
+This data was provided by the US Department of Labor Statistics
+#### White Collar Workers Percentage (%WC)
+How labor intensive jobs are, and the environment in which people work for the majority of their lives might have an effect on mortality. 
+
+#### Race (%NonWhite)
+
+Many minority populations have been historically disadvantaged compared to white populations. According to the National Equity Atlas, In 2019, 16 percent of people of color lived in high-poverty neighborhoods compared to 4 percent of the white population. In addition to this, Scientific American says that people in lower income neighborhoods are more likely to experience higher levels of pollution. 
+
+#### Education
+
+People at different education levels might have different tendencies and behaviors. Education is represented by the average years of education.  
+
+#### Median Income (income)
+
+People’s behavior and livelihood can change drastically as median income increases. Higher income individuals have access to better healthcare and can typically live healthier lifestyles. Income is given in dollar units. 
+
+#### Population (pop)
+
+Cities that have smaller populations may have different characteristics than larger cities.
+
+#### Population Density (PopDensity)
+
+As population density increases, the pollutants in a given area affect more people. Population density is given in people per square mile. 
+
+#### Residents per Household (pop/house)
+
+Similar to population density, having more people in a given arena, may affect people more. Also there is the potential to be more efficient with resources with higher population density per household. 
+\newpage
+
+# Data Exploration
+
+To explore the data we plotted each predictor variable against mortality followed by each predictor variable against the residuals with mortality. By looking at this we will be able to determine if the data has excessive outliers, needs to be transformed, or has other obvious issues. 
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = JanTem, y = Mortality)) + geom_point() + labs(x = "JanTem", y = "Mortality")
+ggplot(data, aes(x = JanTem, y = resid(lm(Mortality~JanTem)))) + geom_point() + labs(x = "JanTem", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = JulyTemp, y = Mortality)) + geom_point() + labs(x = "JulyTemp", y = "Mortality")
+ggplot(data, aes(x = JulyTemp, y = resid(lm(Mortality~JulyTemp)))) + geom_point() + labs(x = "JulyTemp", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = RelHum, y = Mortality)) + geom_point() + labs(x = "RelHum", y = "Mortality")
+ggplot(data, aes(x = RelHum, y = resid(lm(Mortality~RelHum)))) + geom_point() + labs(x = "RelHum", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = Rain, y = Mortality)) + geom_point() + labs(x = "Rain", y = "Mortality")
+ggplot(data, aes(x = Rain, y = resid(lm(Mortality~Rain)))) + geom_point() + labs(x = "Rain", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = Education, y = Mortality)) + geom_point() + labs(x = "Education", y = "Mortality")
+ggplot(data, aes(x = Education, y = resid(lm(Mortality~Education)))) + geom_point() + labs(x = "Education", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = PopDensity, y = Mortality)) + geom_point() + labs(x = "PopDensity", y = "Mortality")
+ggplot(data, aes(x = PopDensity, y = resid(lm(Mortality~PopDensity)))) + geom_point() + labs(x = "PopDensity", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = PctNonWhite, y = Mortality)) + geom_point() + labs(x = "PctNonWhite", y = "Mortality")
+ggplot(data, aes(x = PctNonWhite, y = resid(lm(Mortality~PctNonWhite)))) + geom_point() + labs(x = "PctNonWhite", y = "Residuals")
+# x = boxcox(data$Mortality ~ data$PctNonWhite)
+# ggplot(data, aes(x = PctNonWhite, y = resid(lm(Mortality~PctNonWhite)))) + geom_point() + labs(x = "PctNonWhite", y = "Residuals")
+qqnorm(resid(lm(data$Mortality~data$PctNonWhite)))
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = pop, y = Mortality)) + geom_point() + labs(x = "pop", y = "Mortality")
+ggplot(data, aes(x = pop, y = resid(lm(Mortality~pop)))) + geom_point() + labs(x = "pop", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = PctWhiteCollar, y = Mortality)) + geom_point() + labs(x = "PctWhiteCollar", y = "Mortality")
+ggplot(data, aes(x = PctWhiteCollar, y = resid(lm(Mortality~PctWhiteCollar)))) + geom_point() + labs(x = "PctWhiteCollar", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = pop.house, y = Mortality)) + geom_point() + labs(x = "pop.house", y = "Mortality")
+ggplot(data, aes(x = pop.house, y = resid(lm(Mortality~pop.house)))) + geom_point() + labs(x = "pop.house", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = income, y = Mortality)) + geom_point() + labs(x = "income", y = "Mortality")
+ggplot(data, aes(x = income, y = resid(lm(Mortality~income)))) + geom_point() + labs(x = "income", y = "Residuals")
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = HCPot, y = Mortality)) + geom_point() + labs(x = "HCPot", y = "Mortality")
+ggplot(data, aes(x = HCPot, y = resid(lm(Mortality~HCPot)))) + geom_point() + labs(x = "HCPot", y = "Residuals")
+qqnorm(resid(lm(data$Mortality~data$HCPot)))
+
+```
+
+```{r, out.width="50%", echo=FALSE}
+ggplot(data, aes(x = SO2Pot, y = Mortality)) + geom_point() + labs(x = "SO2Pot", y = "Mortality")
+ggplot(data, aes(x = SO2Pot, y = resid(lm(Mortality~SO2Pot)))) + geom_point() + labs(x = "SO2Pot", y = "Residuals")
+qqnorm(resid(lm(data$Mortality~data$SO2Pot)))
+
+```
+
+Based on these plots, we can see that some of the plots seemingly have outliers which could affect how we interpret the skew. We will determine if these values are actually outliers after we have fit the model and can use the cooks distance. Beyond this, the residuals for these plots seem to be normally distributed with constant variance which implies that we do not need to transform them. The QQ-Norm plots show that the pollutant plots do have randomly distributed residuals despite what the graphs appear like due to possibly outlying points. 
+
+## Check Correlations
+
+We find a high degree of correlation between the following predictors:
+NoxPot and HCPot have a correlation of .98
+NOxPot and Nox have a correlation of 1.
+
+So we can use Nox to represent Nox, HCPot, NoxPot. 
+
+```{r echo=FALSE}
+corr_cross(data, # name of dataset
+  max_pvalue = 0.05, # display only significant correlations (at 5% level)
+  top = 10 # display top 10 couples of variables (by correlation coefficient)
+)
+```
+
+```{r include=FALSE}
+cor(data$HCPot, data$NOxPot) #.98
+cor(data$NOxPot, data$NOx) # 1
+
+data = subset(data, select = -c(HCPot, NOxPot) )
+```
+\newpage
+
+# Model Building and Diagnostics
+
+Due to the small data set we have decided not to split the data. Ideally you need 6 to 10 times the number of samples per final predictor in your model and with a N = 60, we simply don't have enough data points.
+
+```{r include=FALSE}
+sample_size = floor(0.5*nrow(data))
+set.seed(777)
+picked = sample(seq_len(nrow(data)),size = sample_size)
+
+data.training =data[picked,]
+data.diagnostic = data[-picked,]
+
+split.fit = lm(Mortality~. , data.training )
+#summary(split.fit)
+anova(split.fit)
+
+rm(split.fit)
+```
+
+## Stepwise Regression
+
+To find the best model we do regsubsets on the training data. We then can compare some common metrics across the best representative models for which they in this case have 1 to 8 predictors.
+
+The first metric we have is $R^2$. The best model of 8 predictors has the highest value at .744. However, all the models with 6 or more predictors have an $R^2$ greater than .724. 
+
+The second metric is adjusted $R^2$. Often it is considered a more accurate metric than just $R^2$ since it describes the percent of variation explained by only the independent variables that effect the dependent variable. This makes up for some of the weaker predictors in a given model. Here, the best model of 7 predictors is considered the best with an adjusted $R^2$ value of .701. 
+
+The third indicator is residual sum of squares (SSR). Its no suprise that the best model of 8 predictors has the lowest SSR. Adding predictors to the model always has a less or equal to SSR as the model with $p - 1$ predictors. 
+
+To address this we look at  Mallows's $C_p$ which addresses the overfitting that relying on SSR creates. Model 6 - 1 is best for Cp. It is simpler than 8 -1 and within very close margins on R^2. After that, within a close margin of error the best model of 7 predictors is the next best model. 
+
+Next we look at Bayesian Information Criterion(BIC). We are looking for models with a BIC closest to 0. BIC also tries to solve the overfitting problem of relying on SSR. BIC introduces a larger penalty term for more predictors than AIC. The second best model of 1 predictor suprisingly has the best BIC, however due to its poor other metrics we look on towards the others. In general BIC seems to weight heavily in favor of the lower predictor count samples that have shown to have low adjusted $R^2$ and $high C_p$ values.
+
+
+Finally we look at the Akaike Information Criterion(AIC) which is similiar to BIC besides putting a smaller penalty on the number of predictors. With the lower penalty for predictors we see that the best model of 6 predictors looks like the best model. The best model of 8 predictors comes in close second.
+
+Taking all of this into account we will take a closer look at the best model of 6 (lowest $AIC$ and $C_p$), 7 (highest Adj $R^2$), and 8 predictors (lowest SSR)
+```{r include=FALSE}
+res <- regsubsets(Mortality ~. , data = data, nbest = 1,
+                  method = "exhaustive")
+summ = summary(res)
+# lovely code here to loop through regsubsets and get lm
+# https://stackoverflow.com/questions/41000835/get-all-models-from-leaps-regsubsets
+xvars <- dimnames(summ$which)[[2]][-1]
+lst <- vector("list", dim(summ$which)[1])
+ lst_PRESS <- vector("list", dim(summ$which)[1])
+responsevar <- "Mortality"  ## name of response
+for (i in 1:dim(summ$which)[1]) {
+  id <- summ$which[i, ]
+  form <- reformulate(xvars[which(id[-1])], responsevar, id[1])
+  object.lm <- lm(form, data)
+  
+  lst[[i]] <- AIC(object.lm)
+  #Manually calcualting Press
+  object.res <- resid(object.lm)
+  lst_PRESS[[i]] <- sum(object.res/(1 - lm.influence(object.lm)$hat)^2)
+}
+AIC.df <- data.frame(lst)
+PRESS.df <- data.frame(lst_PRESS)
+model_criteria_table_1 = data.frame(row.names(summ$which), summ$rsq, summ$adjr2, summ$rss, summ$cp , summ$bic, transpose(AIC.df), transpose(PRESS.df))
+colnames(model_criteria_table_1) <- c("Model", "R^2", "Adjusted R^2", "Residual Sum of Squares" , "Cp", "BIC", "AIC", "PRESS")
+
+```
+
+
+```{r echo=FALSE}
+res <- regsubsets(Mortality ~. , data = data, nbest = 2,
+                  method = "exhaustive")
+summ = summary(res)
+# lovely code here to loop through regsubsets and get lm
+# https://stackoverflow.com/questions/41000835/get-all-models-from-leaps-regsubsets
+xvars <- dimnames(summ$which)[[2]][-1]
+lst <- vector("list", dim(summ$which)[1])
+ lst_PRESS <- vector("list", dim(summ$which)[1])
+responsevar <- "Mortality"  ## name of response
+for (i in 1:dim(summ$which)[1]) {
+  id <- summ$which[i, ]
+  form <- reformulate(xvars[which(id[-1])], responsevar, id[1])
+  object.lm <- lm(form, data)
+  
+  lst[[i]] <- AIC(object.lm)
+  #Manually calcualting Press
+  object.res <- resid(object.lm)
+  lst_PRESS[[i]] <- sum(object.res/(1 - lm.influence(object.lm)$hat)^2)
+}
+AIC.df <- data.frame(lst)
+PRESS.df <- data.frame(lst_PRESS)
+model_criteria_table = data.frame(row.names(summ$which), summ$rsq, summ$adjr2, summ$rss, summ$cp , summ$bic, transpose(AIC.df), transpose(PRESS.df))
+colnames(model_criteria_table) <- c("Model", "R^2", "Adjusted R^2", "Residual Sum of Squares" , "Cp", "BIC", "AIC", "PRESS")
+kable(model_criteria_table)
+```
+
+```{r, out.width="50%", echo=FALSE}
+plot(model_criteria_table_1$BIC ~ model_criteria_table_1$Model, type = "l", xlab = "Predictors",
+     ylab = "BIC")
+
+
+plot(model_criteria_table_1$AIC ~ model_criteria_table_1$Model, type = "l", xlab = "Predictors",
+     ylab = "AIC")
+
+plot(model_criteria_table_1$Cp ~ model_criteria_table_1$Model, type = "l", xlab = "Predictors",
+     ylab = "Cp")
+
+plot(model_criteria_table_1$`Adjusted R^2`~ model_criteria_table_1$Model, type = "l", xlab = "Predictors",
+     ylab = "Cp")
+```
+
+## Best models predictor coeffieicent table
+
+Here we see the chosen predictors of the 3 best models. 
+
+Predictors that didn't make it into the largest model include: Relative Humidity, Population, Pop House, Income, and NOx.
+
+In model 8.1 SO2 Potential and Population density have relatively low coefficients.
+In model 7.1 PctWhiteCollar and Education have low coefficients.
+In model 6.1 Pct NonWhite and Rain Have low relative coefficients.
+
+```{r echo=FALSE}
+model_8.1.lm <- lm(Mortality ~ JanTem + JulyTemp + Rain + PctNonWhite +  SO2Pot + Education  +PctWhiteCollar + PopDensity, data = data)
+
+model_7.1.lm<- lm(Mortality ~ JanTem + JulyTemp +  Rain + PctNonWhite + SO2Pot +  PopDensity +PctWhiteCollar , data = data)
+
+model_6.1.lm <- lm(Mortality ~ JanTem + JulyTemp + Rain + PctNonWhite + SO2Pot +  Education, data = data)
+
+model_8.1 = data.frame(model_8.1.lm$coefficients)
+model_7.1 = data.frame(model_7.1.lm$coefficients)
+model_6.1 = data.frame(model_6.1.lm$coefficients)
+
+
+
+merge.all <- function(x, ..., by = 0) {
+  L <- list(...)
+  for (i in seq_along(L)) {
+    x <- merge(x, L[[i]], by = by, all.x = TRUE)
+    rownames(x) <- x$Row.names
+    x$Row.names <- NULL
+  }
+  return(x)
+}
+
+model_table <- merge.all(model_8.1,model_7.1,model_6.1)
+colnames(model_table) <- c("Model 8.1", "Model 7.1", "Model 6.1")
+
+model_table <- model_table  %>% mutate_if(is.numeric, round, digits = 3)
+kable(model_table)
+```
+
+## Check for Multicollinearity
+
+Multicollinearity is low across all predictors. 
+
+We will move forward with model 6 since its the simplest and is the best for $C_p$ and $AIC$ criteria. 
+In the initial anova we see most variables are signifigant except January temperature. There must be some hidden relation that the correlation and multicollinearity plot missed. 
+```{r, out.width="33%", echo=FALSE}
+col.names = c("Model 8.1", "Model 7.1", "Model 6.1")
+
+model_8.vif <- data.frame(vif(model_8.1.lm))
+model_7.vif <- data.frame(vif(model_7.1.lm))
+model_6.vif <- data.frame(vif(model_6.1.lm))
+
+model_table_vif <- merge.all(model_8.vif,model_7.vif , model_6.vif  )
+colnames(model_table_vif) <- c("VIF 8.1", "VIF 7.1", "VIF 6.1")
+
+model_table_vif<-model_table_vif %>% mutate_if(is.numeric, round, digits = 3)
+
+kable(model_table_vif)
+kable(anova(model_6.1.lm))
+```
+## Check Model for Outliers, Leveredge, and Influential Points
+
+
+In the cooks model we see one outlier. Which means this datapoint has high leverage.
+No outlier in the studentized residual plot.
+Quite a few outliers in the DFFITS plot. Which means there are few influential points. The point with a high positive DFFITS value is equal to our cooks outlier. In this case we also see a few outliers in the negatives.
+
+Threshold is $\frac{2P}{N} = \frac{2*6}{59}$ = .203
+
+
+```{r, out.width="33%", echo=FALSE}
+threshold <- (2 *6) / 59
+ cooks <- cooks.distance(model_6.1.lm)
+
+plot(cooks, type = "o")
+title(main = "Cooks Distance")
+abline(h = threshold, col = "red")
+
+# data_new<- data[-c(37), ]
+
+ols_plot_resid_stud(model_6.1.lm)
+
+k <- length(model_6.1.lm$coefficients)-1
+n <- nrow(data)
+cv <- 2*sqrt(k/n)
+plot(dffits(model_6.1.lm), ylab = "Standardized DFFITS")
+title(main = "DFFITS")
+abline(h = cv, lty = 2)
+abline(h = -cv, lty = 2)
+
+```
+No Influential points in DFBetas
+```{r out.width="25%", echo=FALSE}
+#ols_plot_dfbetas(model_6.1.lm)
+
+betas_threshhold <- 2 / sqrt(k)
+dfbetas <- as.data.frame(dfbetas(model_6.1.lm))
+
+for(i in colnames(dfbetas)){
+plot(dfbetas[[i]], ylab = i)
+title(main = "DFBETAS")
+abline(h = betas_threshhold, lty = 2)
+abline(h = -betas_threshhold, lty = 2)
+}
+```
+
+We have outliers, and we have points with leverage, but no points with both, so we will leave all points in and simply do a robust regression as a point of reference as a remedial measure.
+```{r fig2, fig.height = 3, fig.width = 7, echo=FALSE}
+ols_plot_resid_lev(model_6.1.lm)
+```
+
+While its not appropriate to calculate $R^2$ for Robust linear regression, we see a reduction is residual error when we do the regression, indicating the robust regression account for the outliers and influential points better than the simple regression. The RSE of the original regression being 34.47 and the robust regression RSE being 30.8.
+```{r echo=FALSE}
+library(MASS)
+
+robust_model_6.1.lm<- rlm(Mortality ~ JanTem + JulyTemp + Rain + PctNonWhite + SO2Pot +  Education, data = data)
+
+#summary(model_6.1.lm)$sigma
+#summary(robust_model_6.1.lm)$sigma
+
+models_6 = data.frame(robust_model_6.1.lm$coefficients, model_6.1.lm$coefficients)
+
+colnames(models_6) <- c("Robust Regression 6.1 ", "6.1 Old")
+models_6 <- models_6 %>% mutate_if(is.numeric, round, digits = 3)
+kable(models_6)
+
+
+```
+
+
+```{r eval=FALSE, echo=FALSE}
+#data_new removed after learning about remedial measures.
+# Removed this section once we understood remedial measures.
+model_6.1.lm.new <- lm(Mortality ~ JanTem + JulyTemp + Rain + PctNonWhite + SO2Pot +  Education, data = data_new)
+
+# model_6.1 = data.frame(model_6.1.lm$coefficients)
+models_6 = data.frame(model_6.1.lm.new$coefficients, model_6.1.lm$coefficients)
+
+colnames(models_6) <- c("Model 6.1 New", "Model 6.1 Old")
+
+#models_6 <- models_6 %>% mutate_if(is.numeric, round, digits = 3)
+#kable(models_6)
+```
+
+
+
+
+
+```{r echo=FALSE}
+#kable(anova(model_6.1.lm.new))
+
+```
+
+\newpage
+
+## Weighted Least Squares Regression
+
+To see if we need to do this test we check for heteroscedasticity. We do a Breush Pagan Test and see signifigant results for non constant variance. So we will move forward to the weighted regression
+
+```{r echo=FALSE}
+plot(fitted(model_6.1.lm), resid(model_6.1.lm),  xlab='Fitted Values', ylab='Residuals')
+abline(0,0)
+```
+
+```{r echo=FALSE}
+#Test for heteroscedasticity ie equal variance
+#bptest(model_6.1.lm)
+ols_test_breusch_pagan(model_6.1.lm, rhs = TRUE)
+```
+
+Here we perform our weighted least square regression. We will choose to move forward with this model. As shown in the anova, the signifigance the predictors went up, even though January tempurature is still non signifigant. 
+```{r, out.width="50%", echo=FALSE}
+#Perform weighted least square regression
+
+wt <- 1 / lm(abs(model_6.1.lm$residuals) ~ model_6.1.lm$fitted.values)$fitted.values^2
+wls_model_6.1.lm <- lm(Mortality ~ JanTem + JulyTemp + Rain + PctNonWhite + SO2Pot +  Education, data = data, weights = wt)
+
+models_6 = data.frame(wls_model_6.1.lm$coefficients, model_6.1.lm$coefficients)
+
+colnames(models_6) <- c("Weighted Regression 6.1 Coef", "6.1 Old Coef")
+
+models_6 <- models_6 %>% mutate_if(is.numeric, round, digits = 3)
+kable(models_6)
+#kable(anova(model_6.1.lm))
+kable(anova(wls_model_6.1.lm))
+```
+
+In the final added variable plot all the predictors look to have a strong relationship with mortality so it indicates a good model.
+
+```{r fig1, fig.height = 5, fig.width = 7, echo=FALSE}
+avPlots(wls_model_6.1.lm)
+```
+
+\newpage
+
+With our added variable plot of this model indicating a good, the anova indicating significance of available, and any relevant remdial measures explored. Our final model 
+is as follows:
+
+$$Mortality = 1214.57 -1.58JanTemp - 2.49JulyTemp + 1.39Rain + 4.97 PctNonWhite - 14.65Education + .252SO2Pot $$
+
+Here is our final summary.  We see an $AdjR^2$ of .6962 which for a model with human elements in pretty good. Nearly all of the predictors are significant to at least $\alpha$ = .05 with the exception of July Temperature. 
+
+```{r}
+mod <- summary(wls_model_6.1.lm)
+mod
+```
+\newpage
+
+## Model Interpretation and Implication
+
+# Conclusion
+
+In conclusion, we carefully studied and sifted through the data, using the stepwise method and criterion method to select the best model. We then used DFFITS and Cook's statistics to test the influential observations in our linear regression model. Finally, we use weighted and robust regression to test if there are remedial measures for variances and outliers.
+For our model we chose these six variables:
+
+### Temperature
+Climate change is the single biggest health threat facing humanity, and health professionals worldwide are already responding to the health harms caused by this unfolding crisis.
+The Intergovernmental Panel on Climate Change (IPCC) has concluded that in order to avert catastrophic health impacts and prevent millions of climate change-related deaths, the world must limit temperature rise to 1.5°C. Global heating of even 1.5°C is not considered safe. However, every additional tenth of a degree of warming will take a severe toll on people's lives and health.
+
+### Rainfall
+Extreme precipitation events have  become more common since the 1950s in many regions of the world including much of the United States. The Midwest and Northeast have seen the most substantial increases in heavy precipitation events.
+Scientists expect these trends to continue as the planet continues to warm. The extreme rainfall events cause flooding and play an important role in exacerbating public health problems, namely the spread of water-related infectious diseases.
+
+### Education
+The popularization of education can make people realize the importance of environmental protection and learn to protect themselves simultaneously. Moreover, the spread of this knowledge across age groups could significantly reduce mortality.
+
+### Race
+Data from the Federal Reserve Board's Survey of Consumer Finance show that white households have more wealth than other racial groups, with black and Hispanic families having the least wealth. The average white home, for example, is four to six times richer than the average black household. There is a direct correlation between wealth and access to health care.
+
+### SOx Pollution
+Sulfur pollution can contribute to respiratory illness by making breathing more difficult. Longer exposures can aggravate existing heart and lung conditions, as well. Sulfur dioxide and other SOx are partly culpable in the formation of thick haze and smog, which can impair visibility and impact health.
+
+### Suggested Actions
+Based on our model we give the following suggestions:
+1. Strengthen education and publicity so that people build up the awareness of protecting the environment and learn to prevent natural disasters
+
+2. Reduce carbon emissions, the earth's future temperature rise will largely depend on cumulative greenhouse gas emissions.
+
+
+## Bibleography
+
+
+```{r echo=FALSE}
+mybib <- RefManageR::ReadBib("ref.bib", check = FALSE) 
+mybib
+```
+
